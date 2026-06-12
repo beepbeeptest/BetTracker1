@@ -206,14 +206,14 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
 
 <!-- Меню результата -->
 <div class="res-menu" id="resMenu" style="display:none">
-  <div class="res-menu-bg" onclick="closeResMenu()"></div>
+  <div class="res-menu-bg" data-action="closeResMenu"></div>
   <div class="res-menu-sheet">
     <div class="res-menu-title">Изменить результат</div>
-    <button class="res-menu-btn" style="color:var(--win)" onclick="setResult('win')">✅ Выигрыш</button>
-    <button class="res-menu-btn" style="color:var(--lose)" onclick="setResult('lose')">❌ Проигрыш</button>
-    <button class="res-menu-btn" style="color:var(--ret)" onclick="setResult('return')">↩️ Возврат</button>
-    <button class="res-menu-btn" style="color:var(--pending)" onclick="setResult('pending')">⏳ Ожидание</button>
-    <button class="res-menu-btn res-menu-cancel" onclick="closeResMenu()">Отмена</button>
+    <button class="res-menu-btn" style="color:var(--win)" data-setres="win">✅ Выигрыш</button>
+    <button class="res-menu-btn" style="color:var(--lose)" data-setres="lose">❌ Проигрыш</button>
+    <button class="res-menu-btn" style="color:var(--ret)" data-setres="return">↩️ Возврат</button>
+    <button class="res-menu-btn" style="color:var(--pending)" data-setres="pending">⏳ Ожидание</button>
+    <button class="res-menu-btn res-menu-cancel" data-action="closeResMenu">Отмена</button>
   </div>
 </div>
 
@@ -288,14 +288,14 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
   <div class="form-section">
     <div class="form-section-title">Результат</div>
     <div class="result-grid">
-      <button class="result-btn sel-pending" id="rb-pending" onclick="selectResult('pending')">⏳ Ожидание</button>
-      <button class="result-btn" id="rb-win"     onclick="selectResult('win')">✅ Выигрыш</button>
-      <button class="result-btn" id="rb-lose"    onclick="selectResult('lose')">❌ Проигрыш</button>
-      <button class="result-btn" id="rb-return"  onclick="selectResult('return')">↩️ Возврат</button>
+      <button class="result-btn sel-pending" id="rb-pending" data-res="pending">⏳ Ожидание</button>
+      <button class="result-btn" id="rb-win"     data-res="win">✅ Выигрыш</button>
+      <button class="result-btn" id="rb-lose"    data-res="lose">❌ Проигрыш</button>
+      <button class="result-btn" id="rb-return"  data-res="return">↩️ Возврат</button>
     </div>
   </div>
 
-  <button class="btn-primary" id="btnAdd" onclick="addBet()">+ Добавить ставку</button>
+  <button class="btn-primary" id="btnAdd" id="btnAddBet">+ Добавить ставку</button>
 </div>
 
 <!-- Экран: Аналитика -->
@@ -329,12 +329,12 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
       <label>Начальный баланс</label>
       <input id="sBalance" placeholder="Оставьте пустым" inputmode="decimal">
     </div>
-    <button class="btn-primary" onclick="saveSettings()">Сохранить</button>
+    <button class="btn-primary" id="btnSaveSettings">Сохранить</button>
   </div>
   <div class="form-section" style="margin-top:12px">
     <div class="form-section-title">Данные</div>
-    <button class="btn-ghost" onclick="exportCSV()">📥 Экспорт CSV</button>
-    <button class="btn-danger" id="btnReset" onclick="resetData()">🗑 Сбросить все данные</button>
+    <button class="btn-ghost" id="btnExportCSV">📥 Экспорт CSV</button>
+    <button class="btn-danger" id="btnReset" id="btnResetData">🗑 Сбросить все данные</button>
   </div>
   <div style="text-align:center;color:var(--muted);font-size:11px;margin-top:20px;line-height:1.6">
     Данные привязаны к твоему аккаунту Telegram<br>и хранятся на сервере
@@ -343,13 +343,13 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
 
 <!-- Навигация -->
 <nav class="nav">
-  <button class="nav-btn active" id="nav-home" onclick="goTo('home')">
+  <button class="nav-btn active" id="nav-home" data-nav="home">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
     </svg>
     Главная
   </button>
-  <button class="nav-btn" id="nav-bets" onclick="goTo('bets')">
+  <button class="nav-btn" id="nav-bets" data-nav="bets">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
       <rect x="9" y="3" width="6" height="4" rx="1"/>
@@ -357,20 +357,20 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
     </svg>
     Ставки
   </button>
-  <button class="nav-btn" id="nav-add" onclick="goTo('add')">
+  <button class="nav-btn" id="nav-add" data-nav="add">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
     </svg>
     Добавить
   </button>
-  <button class="nav-btn" id="nav-analytics" onclick="goTo('analytics')">
+  <button class="nav-btn" id="nav-analytics" data-nav="analytics">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
     Аналитика
   </button>
-  <button class="nav-btn" id="nav-settings" onclick="goTo('settings')">
+  <button class="nav-btn" id="nav-settings" data-nav="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -561,10 +561,10 @@ function renderBets(){
     var tags=[b.date?b.date.slice(8,10)+"."+b.date.slice(5,7)+"."+b.date.slice(2,4):"",
       b.book,b.sport,b.market,b.pick].filter(Boolean);
     return '<div class="bet-card">'+
-      '<button class="bet-delete" onclick="deleteBet(\''+b.id+'\')">✕</button>'+
+      '<button class="bet-delete" data-del="'+b.id+'">✕</button>'+
       '<div class="bet-header">'+
         '<div class="bet-event">'+esc(b.event)+'</div>'+
-        '<div class="bet-badge '+b.result+'" onclick="openResMenu(\''+b.id+'\')">'+
+        '<div class="bet-badge '+b.result+'" data-menu="'+b.id+'">'+
           {win:"✅ WIN",lose:"❌ LOSE",return:"↩️ RET",pending:"⏳"}[b.result]+'</div>'+
       '</div>'+
       '<div class="bet-meta">'+tags.map(function(t){return'<span class="bet-tag">'+esc(t)+'</span>';}).join("")+'</div>'+
@@ -646,7 +646,7 @@ function deleteBet(id){
 var ATABS=[["months","Месяцы"],["books","Букмекеры"],["sports","Спорт"],["markets","Рынки"]];
 function renderAnalytics(){
   document.getElementById("analyticsTabs").innerHTML=ATABS.map(function(t){
-    return '<button class="tab-btn'+(analyticsTab===t[0]?" active":"")+'" onclick="setATab(\''+t[0]+'\')">'+t[1]+'</button>';
+    return '<button class="tab-btn'+(analyticsTab===t[0]?" active":"")+'" data-atab="'+t[0]+'">''+t[1]+'</button>';
   }).join("");
   var settled=bets.filter(function(b){return b.result!=="pending";});
   var body=document.getElementById("analyticsBody");
@@ -742,6 +742,41 @@ function resetData(){
   renderSettingsUI();
   toast("🗑 Данные сброшены");
 }
+
+// ── Событие делегирование (вместо onclick) ──
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-nav],[data-res],[data-setres],[data-action],[data-del],[data-menu],[id]");
+  if(!t) return;
+
+  // Навигация
+  if(t.dataset.nav){ goTo(t.dataset.nav); return; }
+
+  // Выбор результата в форме
+  if(t.dataset.res){ selectResult(t.dataset.res); return; }
+
+  // Установить результат из меню
+  if(t.dataset.setres){ setResult(t.dataset.setres); return; }
+
+  // Закрыть меню
+  if(t.dataset.action === "closeResMenu"){ closeResMenu(); return; }
+
+  // Удалить ставку
+  if(t.dataset.del){ deleteBet(t.dataset.del); return; }
+
+  // Открыть меню результата
+  if(t.dataset.menu){ openResMenu(t.dataset.menu); return; }
+
+  // Аналитика вкладки
+  if(t.dataset.atab){ setATab(t.dataset.atab); return; }
+
+  // Кнопки по id
+  var id = t.id;
+  if(id === "btnAddBet"){ addBet(); return; }
+  if(id === "btnSaveSettings"){ saveSettings(); return; }
+  if(id === "btnExportCSV"){ exportCSV(); return; }
+  if(id === "btnResetData"){ resetData(); return; }
+  if(id === "btnReset"){ resetData(); return; }
+});
 
 // ── Старт ──
 document.getElementById("fDate").value=today();
