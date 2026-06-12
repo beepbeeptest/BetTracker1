@@ -116,20 +116,44 @@
     .form .c2,.form .c3,.form .c4,.form .c6{grid-column:auto}
   }
   @media (max-width:600px){
-    body{padding:12px 10px}
-    .wrap{max-width:100%}
+    body{padding:10px 8px}
+    .wrap{max-width:100%;overflow-x:hidden}
     .form{grid-template-columns:1fr}
     .form .c2,.form .c3,.form .c4,.form .c6{grid-column:auto}
     .stats{grid-template-columns:1fr 1fr}
-    .stat .val{font-size:17px}
-    h1{font-size:15px}
-    .head{flex-direction:column;gap:8px}
-    .head-actions{flex-wrap:wrap;gap:6px}
-    .btn{padding:8px 10px;font-size:11px}
-    table{font-size:12px}
-    th,td{padding:8px 8px}
-    .ev{max-width:120px}
+    .stat{padding:10px 12px}
+    .stat .val{font-size:16px}
+    .stat .lbl{font-size:9px}
+    h1{font-size:14px}
+    h1 .sub{font-size:10px}
+    .head{flex-direction:column;gap:8px;align-items:flex-start}
+    .head-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%}
+    .head-actions select{grid-column:span 2}
+    .btn{padding:7px 8px;font-size:10px}
     #settingsCard .form{grid-template-columns:1fr}
+
+    /* Таблица → карточки */
+    .tbl-wrap{overflow-x:visible}
+    table,thead,tbody,th,td,tr{display:block}
+    thead{display:none}
+    tbody tr{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:4px;margin-bottom:10px;padding:10px 12px;
+      position:relative
+    }
+    tbody tr td{
+      border:none;padding:2px 0;font-size:12px;
+      display:flex;gap:6px;align-items:baseline
+    }
+    tbody tr td::before{
+      content:attr(data-label);
+      color:var(--muted);font-size:10px;letter-spacing:.06em;
+      text-transform:uppercase;min-width:72px;flex-shrink:0
+    }
+    tbody tr td:last-child{position:absolute;top:8px;right:8px}
+    tbody tr td:last-child::before{display:none}
+    .res-cell .menu{left:auto;right:0}
+    .ev{max-width:180px;white-space:normal;overflow:visible;text-overflow:unset}
   }
 
   /* Telegram Mini App — адаптация */
@@ -559,19 +583,19 @@
         var raw = Math.round(b.stake*settings.unit*100)/100;
         stakeCell = '<td style="white-space:nowrap"><input id="stakeEditInput" class="mono" data-sid="'+b.id+'" value="'+raw+'" inputmode="decimal" style="width:100px;padding:5px 8px;font-size:13px"> '+esc(settings.cur)+'</td>';
       } else {
-        stakeCell = '<td class="mono stake-cell" data-editstake="'+b.id+'" title="Нажми, чтобы изменить сумму" style="white-space:nowrap">'+fmtMoney(b.stake)+'</td>';
+        stakeCell = '<td class="mono stake-cell" data-label="Ставка" data-editstake="'+b.id+'" title="Нажми, чтобы изменить сумму" style="white-space:nowrap">'+fmtMoney(b.stake)+'</td>';
       }
       return '<tr>'+
-        '<td class="dim" style="white-space:nowrap;font-size:13px">'+(b.book?esc(b.book):"—")+'</td>'+
-        '<td class="mono dim" style="font-size:13px;white-space:nowrap">'+b.date.slice(8,10)+'.'+b.date.slice(5,7)+'.'+b.date.slice(2,4)+'</td>'+
-        '<td class="ev">'+esc(b.event)+'</td>'+
-        '<td class="dim" style="white-space:nowrap;font-size:13px">'+(b.sport?esc(b.sport):"—")+'</td>'+
-        '<td class="dim" style="white-space:nowrap">'+(b.market?esc(b.market):"—")+'</td>'+
-        '<td class="dim" style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+esc(b.pick||"")+'">'+(b.pick?esc(b.pick):"—")+'</td>'+
-        '<td class="mono">'+fmt(b.odds)+'</td>'+
+        '<td class="dim" data-label="Букмекер" style="white-space:nowrap;font-size:13px">'+(b.book?esc(b.book):"—")+'</td>'+
+        '<td class="mono dim" data-label="Дата" style="font-size:13px;white-space:nowrap">'+b.date.slice(8,10)+'.'+b.date.slice(5,7)+'.'+b.date.slice(2,4)+'</td>'+
+        '<td class="ev" data-label="Событие">'+esc(b.event)+'</td>'+
+        '<td class="dim" data-label="Спорт" style="white-space:nowrap;font-size:13px">'+(b.sport?esc(b.sport):"—")+'</td>'+
+        '<td class="dim" data-label="Рынок" style="white-space:nowrap">'+(b.market?esc(b.market):"—")+'</td>'+
+        '<td class="dim" data-label="Исход" style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+esc(b.pick||"")+'">'+(b.pick?esc(b.pick):"—")+'</td>'+
+        '<td class="mono" data-label="Кэф">'+fmt(b.odds)+'</td>'+
         stakeCell+
-        '<td class="res-cell"><button class="badge" data-menu="'+b.id+'" style="color:'+rm.hex+';border-color:'+rm.hex+'55;background:'+rm.hex+'1F">'+rm.label+' ▾</button>'+menu+'</td>'+
-        '<td class="mono '+pCls+'" style="font-weight:700;white-space:nowrap">'+(p===null?"·  ·  ·":fmtMoney(p,true))+'</td>'+
+        '<td class="res-cell" data-label="Результат"><button class="badge" data-menu="'+b.id+'" style="color:'+rm.hex+';border-color:'+rm.hex+'55;background:'+rm.hex+'1F">'+rm.label+' ▾</button>'+menu+'</td>'+
+        '<td class="mono '+pCls+'" data-label="Профит" style="font-weight:700;white-space:nowrap">'+(p===null?"·  ·  ·":fmtMoney(p,true))+'</td>'+
         '<td style="text-align:right;padding-right:10px"><button class="del" data-del="'+b.id+'" title="Удалить">✕</button></td>'+
       '</tr>';
     }).join("");
