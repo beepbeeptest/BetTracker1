@@ -456,8 +456,8 @@ function goTo(name){
 // ── Загрузка ──
 function load(){
   Promise.all([
-    apiGet("/api/settings"),
-    apiGet("/api/bets")
+    apiGet("/api/settings").catch(function(){ return null; }),
+    apiGet("/api/bets").catch(function(){ return []; })
   ]).then(function(res){
     var s=res[0], b=res[1];
     if(s && s.unit>0){ settings=s; if(typeof s.balance==="undefined") settings.balance=null; }
@@ -466,7 +466,6 @@ function load(){
     renderHome();
   }).catch(function(){
     hideOverlay();
-    toast("⚠️ Ошибка загрузки данных");
     renderHome();
   });
 }
