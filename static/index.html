@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script>
+// Telegram WebApp SDK — встроен в Telegram, fallback для браузера
+if(!window.Telegram){
+  var s=document.createElement("script");
+  s.src="https://telegram.org/js/telegram-web-app.js";
+  document.write(s.outerHTML);
+}
+</script>
 <title>Bet Tracker</title>
 <style>
 :root{
@@ -653,20 +661,14 @@ document.addEventListener("click", function(e){
 // ── Старт ──
 document.getElementById("fDate").value = today();
 
-// Загружаем Telegram SDK, потом данные
-(function loadTG(){
-  var s=document.createElement("script");
-  s.src="https://telegram.org/js/telegram-web-app.js";
-  s.onload=function(){
-    try{
-      var tg=window.Telegram && window.Telegram.WebApp;
-      if(tg){ tg.ready(); tg.expand(); initData=tg.initData||""; }
-    }catch(e){}
-    loadData();
-  };
-  s.onerror=function(){ loadData(); };
-  document.head.appendChild(s);
-})();
+// Инициализируем Telegram если доступен
+try {
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if(tg){ tg.ready(); tg.expand(); initData = tg.initData || ""; }
+} catch(e) {}
+
+// Запускаем загрузку данных сразу
+loadData();
 </script>
 </body>
 </html>
