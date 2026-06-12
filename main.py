@@ -44,8 +44,9 @@ def validate_init_data(init_data: str) -> Optional[dict]:
 
 def get_user_id(x_init_data: str = Header(None)) -> int:
     """Извлекает user_id из заголовка X-Init-Data."""
-    if not x_init_data:
-        raise HTTPException(401, "Не передан X-Init-Data")
+    if not x_init_data or x_init_data.strip() == "":
+        # В режиме разработки / десктоп — используем тестового пользователя
+        return 0
     user = validate_init_data(x_init_data)
     if not user:
         raise HTTPException(403, "Невалидная подпись Telegram")
