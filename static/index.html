@@ -115,6 +115,22 @@
     .form{grid-template-columns:1fr 1fr}
     .form .c2,.form .c3,.form .c4,.form .c6{grid-column:auto}
   }
+  @media (max-width:600px){
+    body{padding:12px 10px}
+    .wrap{max-width:100%}
+    .form{grid-template-columns:1fr}
+    .form .c2,.form .c3,.form .c4,.form .c6{grid-column:auto}
+    .stats{grid-template-columns:1fr 1fr}
+    .stat .val{font-size:17px}
+    h1{font-size:15px}
+    .head{flex-direction:column;gap:8px}
+    .head-actions{flex-wrap:wrap;gap:6px}
+    .btn{padding:8px 10px;font-size:11px}
+    table{font-size:12px}
+    th,td{padding:8px 8px}
+    .ev{max-width:120px}
+    #settingsCard .form{grid-template-columns:1fr}
+  }
 
   /* Telegram Mini App — адаптация */
   body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
