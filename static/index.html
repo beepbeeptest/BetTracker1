@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Bet Tracker</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js" async></script>
 <style>
 :root {
   --bg: #080C14;
@@ -380,13 +380,21 @@ body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:
 </nav>
 
 <script>
+window.onerror = function(msg, src, line, col, err){
+  document.getElementById("overlay").innerHTML =
+    '<div style="color:#FF4060;padding:20px;font-size:13px;text-align:center">'+
+    '⚠️ Ошибка JS:<br>'+msg+'<br>строка '+line+'</div>';
+  return false;
+};
 (function(){
 "use strict";
 
 // ── Telegram ──
-var tg = window.Telegram && window.Telegram.WebApp;
-if(tg){ tg.ready(); tg.expand(); }
-var initData = (tg && tg.initData) || "";
+var tg = (window.Telegram && window.Telegram.WebApp) || null;
+var initData = "";
+try {
+  if(tg){ tg.ready(); tg.expand(); initData = tg.initData || ""; }
+} catch(e){ console.log("TG init error:", e); }
 
 // ── Состояние ──
 var bets = [];
@@ -436,8 +444,7 @@ function toast(msg){
 }
 function hideOverlay(){
   var el=document.getElementById("overlay");
-  el.classList.add("hidden");
-  setTimeout(function(){ el.style.display="none"; },400);
+  if(el){ el.classList.add("hidden"); setTimeout(function(){ el.style.display="none"; },400); }
 }
 
 // ── Навигация ──
@@ -778,8 +785,16 @@ document.addEventListener("click", function(e){
 });
 
 // ── Старт ──
-document.getElementById("fDate").value=today();
-load();
+function init(){
+  var fDate = document.getElementById("fDate");
+  if(fDate) fDate.value=today();
+  load();
+}
+if(document.readyState==="loading"){
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
 
 })();
 </script>
