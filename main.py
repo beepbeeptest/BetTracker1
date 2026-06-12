@@ -24,7 +24,7 @@ def validate_init_data(init_data: str) -> Optional[dict]:
     if not BOT_TOKEN or not init_data:
         return None
     try:
-        parsed = dict(urllib.parse.parse_qsl(init_data, strict_parsing=True))
+        parsed = dict(urllib.parse.parse_qsl(init_data, strict_parsing=False))
         received_hash = parsed.pop("hash", None)
         if not received_hash:
             return None
@@ -33,9 +33,9 @@ def validate_init_data(init_data: str) -> Optional[dict]:
         computed = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(computed, received_hash):
             return None
-        # Проверяем что данные не старше 1 часа
+        # Проверяем что данные не старше 24 часов
         auth_date = int(parsed.get("auth_date", 0))
-        if time.time() - auth_date > 3600:
+        if time.time() - auth_date > 86400:
             return None
         user_data = json.loads(parsed.get("user", "{}"))
         return user_data
