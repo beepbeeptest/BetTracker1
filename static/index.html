@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bet Tracker — журнал ставок</title>
+<!-- Telegram Mini App SDK — обязателен -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050807; --surface:#0A100C; --surface2:#0F1811; --border:#1E2F23;
+    --text:#CFE3CF; --muted:#5F7E66; --gold:#FFB000; --gold2:#CC8C00;
+    --win:#2EE584; --lose:#FF6047; --ret:#6E8472; --pending:#39C2CE;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--text);
+    background:radial-gradient(900px 420px at 50% -160px, rgba(46,229,132,.07), transparent 60%), var(--bg);
+    font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    padding:24px 16px}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;opacity:.45;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0px, rgba(0,0,0,.25) 1px, transparent 1px, transparent 3px)}
+  .wrap{max-width:1060px;margin:0 auto}
+  .mono{font-family:inherit}
+
+  .head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);position:relative}
+  .head::after{content:"";position:absolute;left:0;bottom:-1px;width:170px;height:1px;
+    background:linear-gradient(90deg,var(--gold),transparent)}
+  h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.05em;color:var(--gold);text-transform:uppercase}
+  h1 .cursor{display:inline-block;animation:blink 1.1s steps(1) infinite;margin-left:2px}
+  @keyframes blink{50%{opacity:0}}
+  h1 .sub{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+  .head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  .banner{display:none;background:#171204;border:1px solid #4A3A00;color:#FFCB5C;
+    border-radius:3px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+  .banner.show{display:block}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:13px 15px;min-width:0}
+  .stat .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;line-height:1.5}
+  .stat .lbl::before{content:"▸ ";color:var(--gold2)}
+  .stat .val{font-family:inherit;font-size:21px;font-weight:700;line-height:1.15;color:var(--gold)}
+  .stat .val.pos{color:var(--win)} .stat .val.neg{color:var(--lose)}
+  .stat .sub{font-size:11px;color:var(--muted);margin-top:5px}
+  .pos{color:var(--win)} .neg{color:var(--lose)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:3px;margin-bottom:18px}
+  .card .cap{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:12px 14px 0}
+  .card .cap > span:first-child::before{content:"■ ";color:var(--gold)}
+  #curveBox{padding-bottom:6px}
+  #curveEmpty{height:120px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+
+  .form{padding:16px;display:grid;gap:10px;align-items:end;grid-template-columns:repeat(12,1fr)}
+  .c2{grid-column:span 2}.c3{grid-column:span 3}.c4{grid-column:span 4}.c6{grid-column:span 6}
+  label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;display:block}
+  input,select{background:var(--surface2);border:1px solid var(--border);border-radius:3px;
+    color:var(--text);padding:9px 12px;font-size:14px;outline:none;width:100%;font-family:inherit}
+  input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,176,0,.25)}
+  input::placeholder{color:#5F7E6699}
+  select{cursor:pointer}
+  select option{background:var(--surface2);color:var(--text)}
+  input[type=date]{color-scheme:dark}
+
+  .btn{border:none;border-radius:3px;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;
+    white-space:nowrap;font-family:inherit;text-transform:uppercase;letter-spacing:.08em}
+  .btn-gold{background:var(--gold);color:#171204;border:1px solid var(--gold2)}
+  .btn-gold:hover:not(:disabled){box-shadow:0 0 14px rgba(255,176,0,.4)}
+  .btn-gold:disabled{background:var(--surface2);color:var(--muted);cursor:default;border-color:var(--border);box-shadow:none}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:500;font-size:11px;padding:8px 12px;letter-spacing:.08em}
+  .btn-ghost:hover{color:var(--gold);border-color:var(--gold2)}
+
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted);
+    font-size:11px;letter-spacing:.07em;text-transform:uppercase;text-align:left}
+  td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .ev{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dim{color:var(--muted)}
+  .empty{padding:36px;text-align:center;color:var(--muted);font-size:14px}
+
+  .badge{border-radius:3px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid transparent;background:transparent;font-family:inherit;text-transform:uppercase;letter-spacing:.04em}
+  .res-cell{position:relative}
+  .menu{position:absolute;z-index:10;top:calc(100% - 6px);left:14px;background:var(--surface2);
+    border:1px solid var(--border);border-radius:3px;box-shadow:0 8px 24px rgba(0,0,0,.6);overflow:hidden;min-width:140px}
+  .menu div{padding:9px 14px;font-size:13px;cursor:pointer}
+  .menu div:hover{background:var(--border)}
+  .del{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px}
+  .del:hover{color:var(--lose)}
+  td.stake-cell{cursor:pointer;text-decoration:underline dotted rgba(95,126,102,.55);text-underline-offset:3px}
+  td.stake-cell:hover{color:var(--gold);text-decoration-color:var(--gold2)}
+  .btn-danger{background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:500;font-size:11px;padding:8px 12px;letter-spacing:.08em}
+  .btn-danger:hover{color:var(--lose);border-color:var(--lose)}
+  .btn-danger.arm{background:var(--lose);border-color:var(--lose);color:#1A0805;font-weight:700}
+
+  .foot{color:var(--muted);font-size:12px;margin-top:14px;text-align:center}
+
+  .dots{display:inline-flex;gap:5px;align-items:center;vertical-align:middle}
+  .dots i{width:9px;height:9px;border-radius:1px;display:inline-block}
+  .dots .w{background:var(--win)} .dots .l{background:var(--lose)} .dots .r{background:var(--ret)}
+
+  .tabs{display:flex;gap:6px;padding:14px 14px 0;flex-wrap:wrap}
+  .tab{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;
+    border-radius:3px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:500;text-transform:uppercase;letter-spacing:.08em}
+  .tab:hover{color:var(--gold);border-color:var(--gold2)}
+  .tab.on{background:var(--gold);border-color:var(--gold2);color:#171204;font-weight:700}
+  #aBody{padding-bottom:4px}
+  .bd-empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}
+  tbody tr:hover td{background:rgba(46,229,132,.04)}
+
+  @media (max-width:880px){
+    .form{grid-template-columns:1fr 1fr}
+    .form .c2,.form .c3,.form .c4,.form .c6{grid-column:auto}
+  }
+
+  /* Telegram Mini App — адаптация */
+  body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+  #loadingOverlay{
+    position:fixed;inset:0;z-index:9999;
+    background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;
+    transition:opacity .3s;
+  }
+  #loadingOverlay.hidden{opacity:0;pointer-events:none}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);
+    border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loadingOverlay p{color:var(--muted);font-size:13px;letter-spacing:.08em}
+
+  .api-error{background:#1A0805;border:1px solid var(--lose);color:#FF9080;
+    border-radius:3px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none}
+  .api-error.show{display:block}
+</style>
+</head>
+<body>
+<!-- Оверлей загрузки -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <p>Загрузка данных...</p>
+</div>
+
+<div class="wrap">
+  <div class="api-error" id="apiError">⚠️ Ошибка соединения с сервером. Проверь подключение и обнови страницу.</div>
+
+  <div class="head">
+    <h1>BET/TRACKER<span class="cursor">█</span> <span class="sub">// журнал ставок</span></h1>
+    <div class="head-actions">
+      <select id="period"><option value="all">Всё время</option></select>
+      <button class="btn btn-ghost" id="btnSettings">⚙ Настройки</button>
+      <button class="btn btn-ghost" id="btnImport">Импорт CSV</button>
+      <button class="btn btn-ghost" id="btnExport">Экспорт CSV</button>
+      <input type="file" id="fileImport" accept=".csv,text/csv" style="display:none">
+    </div>
+  </div>
+
+  <div class="banner" id="localBanner" style="display:none!important"></div>
+
+  <div class="card" id="settingsCard" style="display:none">
+    <div class="form" style="grid-template-columns:200px 160px 200px auto 1fr">
+      <div>
+        <label>Размер флета (1 у.е.)</label>
+        <input id="sUnit" class="mono" inputmode="decimal" placeholder="1000">
+      </div>
+      <div>
+        <label>Валюта</label>
+        <select id="sCur">
+          <option value="у.е.">у.е.</option>
+          <option value="₽">₽ рубль</option>
+          <option value="$">$ доллар</option>
+          <option value="€">€ евро</option>
+          <option value="₸">₸ тенге</option>
+          <option value="USDT">USDT</option>
+        </select>
+      </div>
+      <div>
+        <label>Начальный баланс</label>
+        <input id="sBalance" class="mono" inputmode="decimal" placeholder="оставьте пустым">
+      </div>
+      <button class="btn btn-gold" id="btnSaveSettings">Сохранить</button>
+      <div style="font-size:12px;color:var(--muted);align-self:center;line-height:1.5">
+        Пример: флет 1000 и валюта ₽ — ставка в 1 у.е. отобразится как 1 000 ₽, весь профит и обороты пересчитаются. Ставки хранятся во флетах, поэтому ROI и винрейт не зависят от валюты.
+      </div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card" id="curveBox">
+    <div class="cap" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Динамика банка</span>
+      <span id="lastDots"></span>
+    </div>
+    <div id="curve"></div>
+  </div>
+
+  <div class="card">
+    <div class="form">
+      <div class="c2"><label>Дата</label><input type="date" id="fDate"></div>
+      <div class="c2"><label>Букмекер</label>
+        <input id="fBook" placeholder="Фонбет" list="books">
+        <datalist id="books">
+          <option value="Фонбет"><option value="Melbet"><option value="1xBet">
+          <option value="Winline"><option value="BetBoom"><option value="Лига Ставок">
+          <option value="Марафон"><option value="Pari">
+        </datalist>
+      </div>
+      <div class="c2"><label>Вид спорта</label>
+        <input id="fSport" placeholder="Баскетбол" list="sports">
+        <datalist id="sports">
+          <option value="Баскетбол"><option value="Футбол"><option value="Теннис">
+          <option value="Хоккей"><option value="Волейбол"><option value="Настольный теннис">
+          <option value="Киберспорт"><option value="ММА/Бокс">
+        </datalist>
+      </div>
+      <div class="c6"><label>Событие</label><input id="fEvent" placeholder="Лейкерс — Селтикс"></div>
+      <div class="c3"><label>Рынок</label>
+        <input id="fMarket" placeholder="ТБ 2-й тайм" list="markets">
+        <datalist id="markets">
+          <option value="ТБ 2-й тайм"><option value="ТМ 2-й тайм"><option value="ТБ">
+          <option value="ТМ"><option value="П1"><option value="П2"><option value="Фора">
+        </datalist>
+      </div>
+      <div class="c3"><label>Исход / выбор</label><input id="fPick" placeholder="П1 (+3.5), Овертайм нет"></div>
+      <div class="c2"><label>Кэф</label><input id="fOdds" class="mono" placeholder="1.85" inputmode="decimal"></div>
+      <div class="c2"><label id="stakeLabel">Ставка, у.е.</label><input id="fStake" class="mono" value="1" inputmode="decimal"></div>
+      <div class="c3"><label>Результат</label>
+        <select id="fResult">
+          <option value="pending">Ожидание</option>
+          <option value="win">Выигрыш</option>
+          <option value="lose">Проигрыш</option>
+          <option value="return">Возврат</option>
+        </select>
+      </div>
+      <button class="btn btn-gold c2" id="btnAdd" disabled>Добавить</button>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:hidden;margin-bottom:0">
+    <div id="tableBox"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px;margin-bottom:0">
+    <div class="tabs" id="aTabs"></div>
+    <div id="aBody"></div>
+  </div>
+
+  <div class="foot" id="foot"></div>
+  <div style="display:flex;justify-content:flex-end;margin-top:12px">
+    <button class="btn btn-danger" id="btnReset">Сбросить все данные</button>
+  </div>
+</div>
+</div><!-- /wrap -->
+
+<script>
+(function(){
+  "use strict";
+  var RES = {
+    win:{label:"Выигрыш", color:"var(--win)", hex:"#2EE584"},
+    lose:{label:"Проигрыш", color:"var(--lose)", hex:"#FF6047"},
+    "return":{label:"Возврат", color:"var(--ret)", hex:"#6E8472"},
+    pending:{label:"Ожидание", color:"var(--pending)", hex:"#39C2CE"}
+  };
+  var LABEL2RES = {"Выигрыш":"win","Проигрыш":"lose","Возврат":"return","Ожидание":"pending"};
+  var MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+  var bets = [];
+  var period = "all";
+  var openMenu = null;
+  var editStake = null;
+
+  // ── Telegram Mini App ──
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if(tg){ tg.ready(); tg.expand(); }
+  var initData = (tg && tg.initData) || "";
+
+  // ── API ──
+  var API = "";
+  function apiHeaders(){
+    return { "Content-Type":"application/json", "X-Init-Data": initData };
+  }
+  function apiGet(path){
+    return fetch(API+path, { headers: apiHeaders() }).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    });
+  }
+  function apiPost(path, body){
+    return fetch(API+path, { method:"POST", headers:apiHeaders(), body:JSON.stringify(body) }).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    });
+  }
+  function apiPut(path, body){
+    return fetch(API+path, { method:"PUT", headers:apiHeaders(), body:JSON.stringify(body) }).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    });
+  }
+  function apiDelete(path){
+    return fetch(API+path, { method:"DELETE", headers:apiHeaders() }).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    });
+  }
+
+  var saveTimer = null;
+
+  // ── утилиты ──
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function profitOf(b){
+    if(b.result==="win") return b.stake*(b.odds-1);
+    if(b.result==="lose") return -b.stake;
+    if(b.result==="return") return 0;
+    return null;
+  }
+  function fmt(n, signed){
+    var v = Math.round(n*100)/100;
+    var s = v.toFixed(2).replace(/\.00$/,"").replace(/(\.\d)0$/,"$1");
+    return (signed && v>0 ? "+" : "") + s;
+  }
+
+  // ── настройки (размер флета и валюта) ──
+  var settings = { unit: 1, cur: "у.е.", balance: null }; // balance: null = не задан
+
+  function grp(v){ // группировка тысяч: 12 345
+    var neg = v<0, av = Math.abs(v);
+    var s = av>=100 ? String(Math.round(av)) : fmt(av);
+    var parts = s.split("."), int = parts[0], out = "";
+    while(int.length>3){ out = "\u202F"+int.slice(-3)+out; int = int.slice(0,-3); }
+    out = int+out + (parts[1]?","+parts[1]:"");
+    return (neg?"−":"")+out;
+  }
+  function fmtMoney(units, signed){
+    if(settings.unit===1 && settings.cur==="у.е.") return fmt(units, signed)+" у.е.";
+    var v = units*settings.unit;
+    return (signed&&v>0?"+":"")+grp(v)+" "+settings.cur;
+  }
+  function fmtShort(units, signed){ // для графика, без символа валюты
+    if(settings.unit===1) return fmt(units, signed);
+    var v = units*settings.unit;
+    return (signed&&v>0?"+":"")+grp(v);
+  }
+
+  function loadSettings(cb){
+    apiGet("/api/settings").then(function(s){
+      if(s && s.unit>0){ settings=s; if(typeof s.balance==="undefined") settings.balance=null; }
+      cb();
+    }).catch(function(){ cb(); });
+  }
+  function saveSettings(){
+    apiPost("/api/settings", settings).catch(function(e){ console.error("Ошибка сохранения настроек", e); });
+  }
+  function applySettingsUI(){
+    $("sUnit").value = settings.unit;
+    $("sCur").value = settings.cur;
+    $("sBalance").value = settings.balance !== null ? String(settings.balance * settings.unit) : "";
+    $("stakeLabel").textContent = "Ставка, "+settings.cur;
+    $("fStake").value = settings.unit===1 ? "1" : String(settings.unit);
+  }
+  function todayISO(){
+    var d=new Date(), p=function(x){return x<10?"0"+x:""+x};
+    return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+  }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+  // ── хранилище (API) ──
+  function showError(show){
+    var el = $("apiError");
+    if(el) el.className = "api-error"+(show?" show":"");
+  }
+  function hideOverlay(){
+    var ov = $("loadingOverlay");
+    if(ov){ ov.classList.add("hidden"); setTimeout(function(){ ov.style.display="none"; }, 350); }
+  }
+  function load(){
+    loadSettings(function(){
+      applySettingsUI();
+      apiGet("/api/bets").then(function(data){
+        bets = data || [];
+        showError(false);
+        hideOverlay();
+        render();
+      }).catch(function(){
+        hideOverlay();
+        showError(true);
+        render();
+      });
+    });
+  }
+  // save() не нужен — каждая операция идёт напрямую в API
+  function save(){ /* no-op */ }
+
+  // ── статистика ──
+  function computeStats(list){
+    var settled = list.filter(function(b){return b.result!=="pending"});
+    var wins=0, losses=0, staked=0, profit=0, oddsSum=0;
+    settled.forEach(function(b){
+      if(b.result==="win") wins++;
+      if(b.result==="lose") losses++;
+      staked += b.stake; profit += profitOf(b); oddsSum += b.odds;
+    });
+    var decided = wins+losses;
+    var chrono = settled.slice().sort(function(a,b){ return (a.date+a.id) < (b.date+b.id) ? -1 : 1; });
+    var streakType=null, streakLen=0;
+    for(var i=chrono.length-1;i>=0;i--){
+      var r=chrono[i].result;
+      if(r==="return") continue;
+      if(!streakType){ streakType=r; streakLen=1; }
+      else if(r===streakType) streakLen++;
+      else break;
+    }
+    var maxW=0, maxL=0, cw=0, cl=0;
+    chrono.forEach(function(b){
+      if(b.result==="win"){ cw++; cl=0; if(cw>maxW)maxW=cw; }
+      else if(b.result==="lose"){ cl++; cw=0; if(cl>maxL)maxL=cl; }
+    });
+    var cum=0, peak=0, maxDD=0, curve=[0];
+    chrono.forEach(function(b){
+      cum += profitOf(b); curve.push(cum);
+      if(cum>peak) peak=cum;
+      if(peak-cum>maxDD) maxDD=peak-cum;
+    });
+    var avgOdds = settled.length>0 ? oddsSum/settled.length : 0;
+    return {
+      settled:settled.length, pendingCount:list.length-settled.length,
+      wins:wins, losses:losses, profit:profit, staked:staked,
+      roi: staked>0 ? profit/staked*100 : 0,
+      winrate: decided>0 ? wins/decided*100 : 0,
+      avgOdds: avgOdds,
+      beWinrate: avgOdds>1 ? 100/avgOdds : 0,
+      profitPerBet: settled.length>0 ? profit/settled.length : 0,
+      maxW:maxW, maxL:maxL,
+      currentDD: peak-cum,
+      last10: chrono.slice(-10).map(function(b){return b.result}),
+      streakType:streakType, streakLen:streakLen, maxDD:maxDD, curve:curve
+    };
+  }
+
+  // ── рендер ──
+  function filteredBets(){
+    return period==="all" ? bets.slice() : bets.filter(function(b){ return b.date.slice(0,7)===period; });
+  }
+
+  function renderPeriodOptions(){
+    var sel = $("period");
+    var cur = sel.value || "all";
+    var months = {};
+    bets.forEach(function(b){ months[b.date.slice(0,7)] = true; });
+    var keys = Object.keys(months).sort().reverse();
+    var html = '<option value="all">Всё время</option>';
+    keys.forEach(function(m){
+      var y=m.slice(0,4), mo=+m.slice(5,7);
+      html += '<option value="'+m+'">'+MONTHS[mo-1]+' '+y+'</option>';
+    });
+    sel.innerHTML = html;
+    sel.value = keys.indexOf(cur)>=0 || cur==="all" ? cur : "all";
+    period = sel.value;
+  }
+
+  function statHTML(lbl, val, cls, sub){
+    return '<div class="stat"><div class="lbl">'+lbl+'</div>'+
+      '<div class="val '+(cls||"")+'">'+val+'</div>'+
+      (sub?'<div class="sub">'+sub+'</div>':"")+'</div>';
+  }
+
+  function renderStats(st){
+    var pc = st.profit>0?"pos":st.profit<0?"neg":"";
+    var rc = st.roi>0?"pos":st.roi<0?"neg":"";
+    var streak = st.streakLen>0 ? (st.streakType==="win"?"W":"L")+st.streakLen : "—";
+    var sc = st.streakType==="win"?"pos":st.streakType==="lose"?"neg":"";
+    var edge = st.winrate - st.beWinrate;
+    var ec = edge>0?"pos":edge<0?"neg":"";
+    var inCur = !(settings.unit===1 && settings.cur==="у.е.");
+    var balHTML = "";
+    if(settings.balance !== null){
+      var curBal = settings.balance + st.profit; // в флетах
+      var bc = curBal >= settings.balance ? "pos" : "neg";
+      balHTML = statHTML("Баланс", fmtMoney(curBal), bc,
+        "старт " + fmtMoney(settings.balance));
+    }
+    $("stats").innerHTML =
+      (balHTML) +
+      statHTML("Профит", fmtMoney(st.profit,true), pc,
+        "оборот "+fmtMoney(st.staked)+(inCur ? " · "+fmt(st.profit,true)+" фл." : "")) +
+      statHTML("ROI", fmt(st.roi,true)+"%", rc) +
+      statHTML("Винрейт", fmt(st.winrate)+"%", "", st.wins+"W – "+st.losses+"L") +
+      statHTML("Запас к безубытку", st.avgOdds>1 ? fmt(edge,true)+" п.п." : "—", ec,
+        st.avgOdds>1 ? "нужно "+fmt(st.beWinrate)+"% при кэфе "+fmt(st.avgOdds) : "") +
+      statHTML("Профит / ставку", fmtMoney(st.profitPerBet,true), st.profitPerBet>0?"pos":st.profitPerBet<0?"neg":"") +
+      statHTML("Ставок", st.settled, "", st.pendingCount>0 ? "+ "+st.pendingCount+" в ожидании" : "все рассчитаны") +
+      statHTML("Средний кэф", st.avgOdds?fmt(st.avgOdds):"—", "") +
+      statHTML("Серия", streak, sc, st.maxW||st.maxL ? "рекорды: W"+st.maxW+" · L"+st.maxL : "") +
+      statHTML("Просадка", fmtMoney(st.currentDD), st.currentDD>0.005?"neg":"", "макс. за период "+fmtMoney(st.maxDD));
+  }
+
+  function renderCurve(curve){
+    var box = $("curve");
+    if(curve.length<2){
+      box.innerHTML = '<div id="curveEmpty">График профита появится после первых рассчитанных ставок</div>';
+      return;
+    }
+    var W=800,H=120,P=8;
+    var min=Math.min.apply(null,curve.concat([0])), max=Math.max.apply(null,curve.concat([0]));
+    var range=max-min||1;
+    var x=function(i){return P+(i/(curve.length-1))*(W-P*2)};
+    var y=function(v){return H-P-((v-min)/range)*(H-P*2)};
+    var pts=curve.map(function(v,i){return x(i)+","+y(v)}).join(" ");
+    var last=curve[curve.length-1];
+    var col=last>=0?"#2EE584":"#FF6047";
+    var z=y(0);
+    box.innerHTML =
+      '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:120px;display:block" preserveAspectRatio="none">'+
+      '<polygon points="'+x(0)+','+z+' '+pts+' '+x(curve.length-1)+','+z+'" fill="'+col+'" opacity="0.08"/>'+
+      '<line x1="'+P+'" x2="'+(W-P)+'" y1="'+z+'" y2="'+z+'" stroke="#1E2F23" stroke-width="1" stroke-dasharray="4 4"/>'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.5" opacity="0.35" style="filter:blur(3px)"/>'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+
+      '<rect x="'+(x(curve.length-1)-4)+'" y="'+(y(last)-4)+'" width="8" height="8" fill="#FFB000"/></svg>';
+  }
+
+  function renderTable(list){
+    var box=$("tableBox");
+    if(list.length===0){
+      box.innerHTML = '<div class="empty">Пока нет ставок'+(period!=="all"?" за выбранный период":"")+'. Добавь первую через форму выше — статистика посчитается автоматически.</div>';
+      return;
+    }
+    var sorted = list.slice().sort(function(a,b){ return (a.date+a.id) > (b.date+b.id) ? -1 : 1; });
+    var rows = sorted.map(function(b){
+      var p = profitOf(b);
+      var rm = RES[b.result];
+      var pCls = p===null?"dim":p>0?"pos":p<0?"neg":"dim";
+      var menu = openMenu===b.id ?
+        '<div class="menu">'+Object.keys(RES).map(function(k){
+          return '<div data-set="'+k+'" data-id="'+b.id+'" style="color:'+RES[k].hex+';font-weight:'+(k===b.result?700:500)+'">'+RES[k].label+'</div>';
+        }).join("")+'</div>' : "";
+      var stakeCell;
+      if(editStake===b.id){
+        var raw = Math.round(b.stake*settings.unit*100)/100;
+        stakeCell = '<td style="white-space:nowrap"><input id="stakeEditInput" class="mono" data-sid="'+b.id+'" value="'+raw+'" inputmode="decimal" style="width:100px;padding:5px 8px;font-size:13px"> '+esc(settings.cur)+'</td>';
+      } else {
+        stakeCell = '<td class="mono stake-cell" data-editstake="'+b.id+'" title="Нажми, чтобы изменить сумму" style="white-space:nowrap">'+fmtMoney(b.stake)+'</td>';
+      }
+      return '<tr>'+
+        '<td class="dim" style="white-space:nowrap;font-size:13px">'+(b.book?esc(b.book):"—")+'</td>'+
+        '<td class="mono dim" style="font-size:13px;white-space:nowrap">'+b.date.slice(8,10)+'.'+b.date.slice(5,7)+'.'+b.date.slice(2,4)+'</td>'+
+        '<td class="ev">'+esc(b.event)+'</td>'+
+        '<td class="dim" style="white-space:nowrap;font-size:13px">'+(b.sport?esc(b.sport):"—")+'</td>'+
+        '<td class="dim" style="white-space:nowrap">'+(b.market?esc(b.market):"—")+'</td>'+
+        '<td class="dim" style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+esc(b.pick||"")+'">'+(b.pick?esc(b.pick):"—")+'</td>'+
+        '<td class="mono">'+fmt(b.odds)+'</td>'+
+        stakeCell+
+        '<td class="res-cell"><button class="badge" data-menu="'+b.id+'" style="color:'+rm.hex+';border-color:'+rm.hex+'55;background:'+rm.hex+'1F">'+rm.label+' ▾</button>'+menu+'</td>'+
+        '<td class="mono '+pCls+'" style="font-weight:700;white-space:nowrap">'+(p===null?"·  ·  ·":fmtMoney(p,true))+'</td>'+
+        '<td style="text-align:right;padding-right:10px"><button class="del" data-del="'+b.id+'" title="Удалить">✕</button></td>'+
+      '</tr>';
+    }).join("");
+    box.innerHTML = '<div class="tbl-wrap"><table><thead><tr>'+
+      '<th>Букмекер</th><th>Дата</th><th>Событие</th><th>Спорт</th><th>Рынок</th><th>Исход</th><th>Кэф</th><th>Ставка</th><th>Результат</th><th>Профит</th><th></th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+
+  // ── аналитика ──
+  var aTab = "months";
+  var ATABS = [["months","По месяцам"],["books","По букмекерам"],["sports","По видам спорта"],["markets","По рынкам"],["days","По дням недели"],["odds","По кэфам"]];
+  var DAYS = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"];
+  var ODDS_ORDER = ["до 1.50","1.50–1.69","1.70–1.89","1.90–2.09","2.10–2.49","2.50+"];
+
+  function oddsBucket(o){
+    if(o<1.5) return "до 1.50";
+    if(o<1.7) return "1.50–1.69";
+    if(o<1.9) return "1.70–1.89";
+    if(o<2.1) return "1.90–2.09";
+    if(o<2.5) return "2.10–2.49";
+    return "2.50+";
+  }
+
+  function breakdown(list, keyFn){
+    var map = {};
+    list.forEach(function(b){
+      if(b.result==="pending") return;
+      var k = keyFn(b);
+      if(!map[k]) map[k] = {key:k, n:0, w:0, l:0, staked:0, profit:0, oddsSum:0};
+      var g = map[k];
+      g.n++; g.staked+=b.stake; g.profit+=profitOf(b); g.oddsSum+=b.odds;
+      if(b.result==="win") g.w++;
+      if(b.result==="lose") g.l++;
+    });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+
+  function renderDots(last10){
+    var el = $("lastDots");
+    if(!last10 || last10.length===0){ el.innerHTML=""; return; }
+    var map = {win:"w", lose:"l", "return":"r"};
+    el.innerHTML = '<span style="font-size:11px;letter-spacing:.06em;color:var(--muted);margin-right:8px">ФОРМА</span>'+
+      '<span class="dots">'+last10.map(function(r){return '<i class="'+map[r]+'"></i>'}).join("")+'</span>';
+  }
+
+  function bdRow(name, g, extraCols){
+    var decided = g.w + g.l;
+    var wr = decided>0 ? g.w/decided*100 : 0;
+    var roi = g.staked>0 ? g.profit/g.staked*100 : 0;
+    var pCls = g.profit>0?"pos":g.profit<0?"neg":"dim";
+    var rCls = roi>0?"pos":roi<0?"neg":"dim";
+    return '<tr>'+
+      '<td style="white-space:nowrap">'+esc(name)+'</td>'+
+      '<td class="mono">'+g.n+'</td>'+
+      '<td class="mono dim" style="white-space:nowrap">'+g.w+'–'+g.l+'</td>'+
+      '<td class="mono">'+fmt(wr)+'%</td>'+
+      (extraCols||"")+
+      '<td class="mono '+pCls+'" style="font-weight:700;white-space:nowrap">'+fmtMoney(g.profit,true)+'</td>'+
+      '<td class="mono '+rCls+'" style="white-space:nowrap">'+fmt(roi,true)+'%</td>'+
+    '</tr>';
+  }
+
+  function bdTable(groups, nameCol, withBE){
+    if(groups.length===0) return '<div class="bd-empty">Нет рассчитанных ставок за выбранный период</div>';
+    var rows = groups.map(function(g){
+      var extra = "";
+      if(withBE){
+        var avg = g.n>0 ? g.oddsSum/g.n : 0;
+        var be = avg>1 ? 100/avg : 0;
+        var decided = g.w+g.l;
+        var wr = decided>0 ? g.w/decided*100 : 0;
+        extra = '<td class="mono '+(wr>=be&&decided>0?"pos":"dim")+'">'+fmt(be)+'%</td>';
+      }
+      return bdRow(g.label||g.key, g, extra);
+    }).join("");
+    return '<div class="tbl-wrap"><table><thead><tr>'+
+      '<th>'+nameCol+'</th><th>Ставок</th><th>W–L</th><th>Винрейт</th>'+
+      (withBE?'<th>Безубыток</th>':'')+
+      '<th>Профит</th><th>ROI</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+
+  function renderMonthsChart(list){
+    var groups = breakdown(list, function(b){ return b.date.slice(0,7); });
+    if(groups.length===0) return '<div class="bd-empty">Нет рассчитанных ставок за выбранный период</div>';
+    groups.sort(function(a,b){ return a.key<b.key?-1:1; });
+    var W=800, H=190, P=14, LBL=26, TOP=20;
+    var maxAbs = Math.max.apply(null, groups.map(function(g){return Math.abs(g.profit)}).concat([1]));
+    var plotH = H-LBL-TOP;
+    var zero = TOP + plotH * (maxAbs / (maxAbs*2));
+    var n = groups.length;
+    var slot = (W-P*2)/n;
+    var bw = Math.min(slot*0.6, 64);
+    var bars = groups.map(function(g,i){
+      var cx = P + slot*i + slot/2;
+      var h = Math.abs(g.profit)/maxAbs * (plotH/2);
+      if(g.profit!==0 && h<2) h=2;
+      var col = g.profit>=0 ? "#2EE584" : "#FF6047";
+      var yBar = g.profit>=0 ? zero-h : zero;
+      var yVal = g.profit>=0 ? zero-h-6 : zero+h+14;
+      var mo = +g.key.slice(5,7), yy = g.key.slice(2,4);
+      var name = MONTHS[mo-1].slice(0,3)+" "+yy;
+      return '<rect x="'+(cx-bw/2)+'" y="'+yBar+'" width="'+bw+'" height="'+(h||0)+'" rx="1" fill="'+col+'" opacity="0.8"/>'+
+        '<text x="'+cx+'" y="'+yVal+'" text-anchor="middle" font-size="12" font-weight="700" fill="'+col+'" font-family="ui-monospace,Menlo,Consolas,monospace">'+fmtShort(g.profit,true)+'</text>'+
+        '<text x="'+cx+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="#5F7E66" font-family="ui-monospace,Menlo,Consolas,monospace">'+name+'</text>';
+    }).join("");
+    return '<div style="padding:10px 14px 4px"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block">'+
+      '<line x1="'+P+'" x2="'+(W-P)+'" y1="'+zero+'" y2="'+zero+'" stroke="#1E2F23" stroke-width="1"/>'+
+      bars+'</svg></div>';
+  }
+
+  function renderAnalytics(list){
+    $("aTabs").innerHTML = ATABS.map(function(t){
+      return '<button class="tab'+(aTab===t[0]?" on":"")+'" data-atab="'+t[0]+'">'+t[1]+'</button>';
+    }).join("");
+    var body = $("aBody");
+    if(aTab==="months"){
+      body.innerHTML = renderMonthsChart(list);
+    } else if(aTab==="books"){
+      var gb = breakdown(list, function(b){ return b.book || "Не указан"; });
+      gb.sort(function(a,b){ return b.n-a.n; });
+      body.innerHTML = bdTable(gb, "Букмекер", false);
+    } else if(aTab==="sports"){
+      var gs = breakdown(list, function(b){ return b.sport || "Не указан"; });
+      gs.sort(function(a,b){ return b.n-a.n; });
+      body.innerHTML = bdTable(gs, "Вид спорта", false);
+    } else if(aTab==="markets"){
+      var g = breakdown(list, function(b){ return b.market || "Без рынка"; });
+      g.sort(function(a,b){ return b.n-a.n; });
+      body.innerHTML = bdTable(g, "Рынок", false);
+    } else if(aTab==="days"){
+      var g2 = breakdown(list, function(b){
+        var d = new Date(b.date+"T12:00:00").getDay(); // 0=Вс
+        return String((d+6)%7); // 0=Пн
+      });
+      g2.forEach(function(x){ x.label = DAYS[+x.key]; });
+      g2.sort(function(a,b){ return +a.key - +b.key; });
+      body.innerHTML = bdTable(g2, "День недели", false);
+    } else {
+      var g3 = breakdown(list, function(b){ return oddsBucket(b.odds); });
+      g3.sort(function(a,b){ return ODDS_ORDER.indexOf(a.key) - ODDS_ORDER.indexOf(b.key); });
+      body.innerHTML = bdTable(g3, "Диапазон кэфов", true);
+    }
+  }
+
+  function render(){
+    renderPeriodOptions();
+    var list = filteredBets();
+    var st = computeStats(list);
+    renderStats(st);
+    renderCurve(st.curve);
+    renderDots(st.last10);
+    renderTable(list);
+    renderAnalytics(list);
+    $("foot").textContent = "Данные сохраняются на сервере и привязаны к твоему аккаунту Telegram.";
+  }
+
+  // ── форма ──
+  function parseNum(s){ return parseFloat(String(s).replace(",", ".")); }
+  function formValid(){
+    var odds=parseNum($("fOdds").value), stake=parseNum($("fStake").value);
+    return $("fEvent").value.trim() && odds>1 && stake>0;
+  }
+  function syncBtn(){ $("btnAdd").disabled = !formValid(); }
+
+  function addBet(){
+    if(!formValid()) return;
+    var bet = {
+      id: uid(),
+      date: $("fDate").value || todayISO(),
+      book: $("fBook").value.trim(),
+      sport: $("fSport").value.trim(),
+      event: $("fEvent").value.trim(),
+      market: $("fMarket").value.trim(),
+      pick: $("fPick").value.trim(),
+      odds: parseNum($("fOdds").value),
+      stake: parseNum($("fStake").value) / settings.unit,
+      result: $("fResult").value
+    };
+    bets.push(bet);
+    $("fEvent").value=""; $("fOdds").value=""; $("fPick").value="";
+    apiPost("/api/bets", bet).catch(function(e){ console.error("Ошибка добавления", e); });
+    render(); syncBtn();
+    $("fEvent").focus();
+  }
+
+  // ── CSV ──
+  function exportCSV(){
+    var head="Дата;Букмекер;Спорт;Событие;Рынок;Исход;Кэф;Ставка;Результат;Профит";
+    var q=function(s){ return '"'+String(s||"").replace(/"/g,'""')+'"'; };
+    var rows = bets.slice().sort(function(a,b){return (a.date+a.id)<(b.date+b.id)?-1:1}).map(function(b){
+      var p=profitOf(b);
+      return [b.date, q(b.book), q(b.sport), q(b.event), q(b.market), q(b.pick||""),
+        b.odds, b.stake, RES[b.result].label, p===null?"":fmt(p)].join(";");
+    });
+    var blob=new Blob(["\uFEFF"+[head].concat(rows).join("\n")],{type:"text/csv;charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a"); a.href=url; a.download="bets.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importCSV(text){
+    var lines = text.replace(/^\uFEFF/,"").split(/\r?\n/).filter(function(l){return l.trim()});
+    var added=0;
+    lines.forEach(function(line,idx){
+      if(idx===0 && /Дата/i.test(line)) return; // заголовок
+      // простой парсер с поддержкой кавычек
+      var parts=[], cur="", inQ=false;
+      for(var i=0;i<line.length;i++){
+        var ch=line[i];
+        if(inQ){
+          if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+          else cur+=ch;
+        } else {
+          if(ch==='"') inQ=true;
+          else if(ch===';'){ parts.push(cur); cur=""; }
+          else cur+=ch;
+        }
+      }
+      parts.push(cur);
+      if(parts.length<6) return;
+      // v2 формат: Дата;Букмекер;Спорт;Событие;Рынок;Исход;Кэф;Ставка;Результат[;Профит]
+      // v1 формат: Дата;Букмекер;Спорт;Событие;Рынок;Кэф;Ставка;Результат[;Профит]
+      // старый формат: Дата;Событие;Рынок;Кэф;Ставка;Результат[;Профит]
+      var isNew = parts.length>=8;
+      var isV2 = isNew && parts.length>=9 && isNaN(parseNum(parts[5])); // v2: parts[5]=Исход (строка)
+      var date = parts[0].trim();
+      var book   = isNew ? parts[1].trim() : "";
+      var sport  = isNew ? parts[2].trim() : "";
+      var event  = (isNew ? parts[3] : parts[1]).trim();
+      var market = (isNew ? parts[4] : parts[2]).trim();
+      var pick   = isV2 ? parts[5].trim() : "";
+      var oddsS  = isV2 ? parts[6] : isNew ? parts[5] : parts[3];
+      var stakeS = isV2 ? parts[7] : isNew ? parts[6] : parts[4];
+      var resS   = (isV2 ? parts[8] : isNew ? parts[7] : parts[5]).trim();
+      // поддержка дат вида ДД.ММ.ГГГГ
+      var m=date.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if(m) date=m[3]+"-"+m[2]+"-"+m[1];
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      var odds=parseNum(oddsS), stake=parseNum(stakeS);
+      var result=LABEL2RES[resS] || "pending";
+      if(!(odds>1) || !(stake>0)) return;
+      bets.push({ id:uid(), date:date, book:book, sport:sport, event:event, market:market, pick:pick, odds:odds, stake:stake, result:result });
+      added++;
+    });
+    save(); render();
+    alert("Импортировано ставок: "+added);
+  }
+
+  // ── события ──
+  $("btnAdd").addEventListener("click", addBet);
+  $("btnSettings").addEventListener("click", function(){
+    var c = $("settingsCard");
+    c.style.display = c.style.display==="none" ? "" : "none";
+  });
+  $("btnSaveSettings").addEventListener("click", function(){
+    var u = parseNum($("sUnit").value);
+    if(!(u>0)){ alert("Размер флета должен быть числом больше нуля"); return; }
+    var bRaw = $("sBalance").value.trim();
+    var bVal = bRaw === "" ? null : parseNum(bRaw);
+    if(bRaw !== "" && !(bVal >= 0)){ alert("Баланс должен быть числом больше или равным нулю"); return; }
+    settings = { unit: u, cur: $("sCur").value, balance: bVal === null ? null : bVal / u };
+    saveSettings();
+    applySettingsUI();
+    $("settingsCard").style.display = "none";
+    render();
+  });
+  ["fEvent","fOdds","fStake"].forEach(function(id){
+    $(id).addEventListener("input", syncBtn);
+    $(id).addEventListener("keydown", function(e){ if(e.key==="Enter") addBet(); });
+  });
+  $("period").addEventListener("change", function(){ period=this.value; openMenu=null; render(); });
+  $("btnExport").addEventListener("click", exportCSV);
+  $("btnImport").addEventListener("click", function(){ $("fileImport").click(); });
+  $("fileImport").addEventListener("change", function(){
+    var f=this.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){ importCSV(r.result); };
+    r.readAsText(f, "utf-8");
+    this.value="";
+  });
+
+  // ── редактирование суммы ставки в таблице ──
+  function commitStakeEdit(cancel){
+    var inp = $("stakeEditInput");
+    if(!inp || editStake===null) return;
+    var id = inp.dataset.sid;
+    if(!cancel){
+      var v = parseNum(inp.value);
+      if(v>0){
+        bets = bets.map(function(b){ return b.id===id ? Object.assign({},b,{stake: v/settings.unit}) : b; });
+        var updBet = bets.find(function(b){ return b.id===id; });
+        if(updBet) apiPut("/api/bets/"+id, updBet).catch(function(e){ console.error("Ошибка обновления", e); });
+      }
+    }
+    editStake = null;
+    render();
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.target && e.target.id==="stakeEditInput"){
+      if(e.key==="Enter") commitStakeEdit(false);
+      else if(e.key==="Escape") commitStakeEdit(true);
+    }
+  });
+  document.addEventListener("focusout", function(e){
+    if(e.target && e.target.id==="stakeEditInput" && editStake!==null){
+      var sid = e.target.dataset.sid;
+      setTimeout(function(){ if(editStake===sid) commitStakeEdit(false); }, 120);
+    }
+  });
+
+  document.addEventListener("click", function(e){
+    var t=e.target;
+    if(t.dataset && t.dataset.editstake){
+      editStake = t.dataset.editstake;
+      openMenu = null;
+      render();
+      var inp = $("stakeEditInput");
+      if(inp){ inp.focus(); inp.select(); }
+      return;
+    }
+    if(t.id==="stakeEditInput") return; // клики внутри поля не трогаем
+    if(t.dataset && t.dataset.atab){
+      aTab = t.dataset.atab;
+      renderAnalytics(filteredBets());
+      return;
+    }
+    if(t.dataset && t.dataset.menu){
+      openMenu = openMenu===t.dataset.menu ? null : t.dataset.menu;
+      render(); e.stopPropagation(); return;
+    }
+    if(t.dataset && t.dataset.set){
+      var id=t.dataset.id, val=t.dataset.set;
+      bets = bets.map(function(b){ return b.id===id ? Object.assign({},b,{result:val}) : b; });
+      openMenu=null;
+      var updBet = bets.find(function(b){ return b.id===id; });
+      if(updBet) apiPut("/api/bets/"+id, updBet).catch(function(e){ console.error("Ошибка обновления", e); });
+      render(); return;
+    }
+    if(t.dataset && t.dataset.del){
+      bets = bets.filter(function(b){ return b.id!==t.dataset.del; });
+      openMenu=null;
+      apiDelete("/api/bets/"+t.dataset.del).catch(function(e){ console.error("Ошибка удаления", e); });
+      render(); return;
+    }
+    if(openMenu){ openMenu=null; render(); }
+  });
+
+  // ── полный сброс данных ──
+  var resetTimer = null;
+  $("btnReset").addEventListener("click", function(){
+    var btn = this;
+    if(!btn.classList.contains("arm")){
+      btn.classList.add("arm");
+      btn.textContent = "Точно удалить всё?";
+      resetTimer = setTimeout(function(){
+        btn.classList.remove("arm");
+        btn.textContent = "Сбросить все данные";
+      }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    clearTimeout(saveTimer);
+    // Удаляем все ставки через API
+    var ids = bets.map(function(b){ return b.id; });
+    bets = [];
+    settings = { unit: 1, cur: "у.е.", balance: null };
+    editStake = null; openMenu = null; period = "all";
+    Promise.all(ids.map(function(id){ return apiDelete("/api/bets/"+id).catch(function(){}); }))
+      .then(function(){ return apiPost("/api/settings", settings); })
+      .catch(function(e){ console.error("Ошибка сброса", e); });
+    btn.classList.remove("arm");
+    btn.textContent = "Сбросить все данные";
+    applySettingsUI();
+    render();
+  });
+
+  // ── старт ──
+  $("fDate").value = todayISO();
+  syncBtn();
+  load();
+})();
+</script>
+</body>
+</html>
